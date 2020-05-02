@@ -6,15 +6,15 @@ void renderScene();
 void reshapeScene(int,int);
 
 // this is where we process the Special Keyboard Button Presses eg: F1, F2, F3, Up, Down, Home etc.
-void pressKey(int, int, int);
-void releaseKey(int, int, int);
+void pressSpecialKey(int, int, int);
+void releaseSpecialKey(int, int, int);
 
-void processNormalKeys(unsigned char, int, int);
+void pressNormalKeys(unsigned char, int, int);
+void releaseNormalKeys(unsigned char, int, int);
 
-void pressMouseButton(int, int, int, int);
 void processMouseMovement(int, int);
 
-void computePos(float);
+void computePos(float, float);
 
 void drawSnowman();
 
@@ -36,13 +36,13 @@ int main(int argc, char** argv) {
 
 	glutIgnoreKeyRepeat(1); // so that repetetive key presses are ignored
 
-	glutKeyboardFunc(processNormalKeys);	// register the callback to the Normal Keyboard Buttons
+	glutKeyboardFunc(pressNormalKeys);	// register the callback to the Normal Keyboard Buttons
+	glutKeyboardUpFunc(releaseNormalKeys);
 	
-	glutSpecialFunc(pressKey);	// register the callback to the Special Keyboard Buttons
-	glutSpecialUpFunc(releaseKey);
+	glutSpecialFunc(pressSpecialKey);	// register the callback to the Special Keyboard Buttons
+	glutSpecialUpFunc(releaseSpecialKey);
 
-	glutMouseFunc(pressMouseButton);		// register the callback to mouse buttons
-	glutMotionFunc(processMouseMovement);	// register the callback to mouse movement
+	glutPassiveMotionFunc(processMouseMovement);	// register the callback to mouse movement
 
 	glEnable(GL_DEPTH_TEST);	//  does depth comparisons and updates the depth buffer
 
@@ -53,18 +53,30 @@ int main(int argc, char** argv) {
 
 }
 
-float angle = 0.0;				// angle of rotation for the camera direction (on y axis/ xz plane)
-float lx = 0.0f, lz = -1.0f;	// line of sight on xz plane
-float x = 0.0f, z = 5.0f;		// xz position of the camera
+float lx = 0.0f,				// line of sight on xz plane
+	  ly = 0.0f,
+	  lz = -1.0f;
+float x = 0.0f, y = 1.0f, z = 5.0f;		// xz position of the camera
+
+float strafeX = 0.0f,
+	  strafeZ = 0.0f;
 
 float movementSpeed = 0.5f;		// defines the units at which the camera will move on a key press
 float rotationSpeed = 2.0f;		// defines the units at which the camera will rotate on a key press
 
-// these are the key states, they are the values to be used on 
-float deltaAngle = 0.0f;
-float deltaMove = 0.0f;
+float angleXY = 0.0f;			// angle of rotation for the camera direction (on z axis/ xy plane)
+float angleXZ = 0.0f;			// angle of rotation for the camera direction (on y axis/ xz plane)
 
-int xPos = -1; // variable to store the X position when the mouse is clicked
+// these are the key states, they are the values to be worked on 
+float deltaAngleXY = 0.0f;
+float deltaAngleXZ = 0.0f;
+
+float deltaMoveZ = 0.0f;
+float deltaMoveX = 0.0f;
+
+// variable to store the X and Y positions when the mouse is clicked
+int xPos = -1; 
+int yPos = -1;
 
 // this is where we start rendering our scene
 void renderScene(void) {
@@ -75,12 +87,13 @@ void renderScene(void) {
 	// reset transformations
 	glLoadIdentity();
 
-	if (deltaMove)
-		computePos(deltaMove);
+	if (deltaMoveX || deltaMoveZ)
+		computePos(deltaMoveX, deltaMoveZ);
 
 	// set the camera
-	gluLookAt( x, 1.0f, z,			// location of the camera
-			  GLdouble(x) + GLdouble(lx), 1.0f, GLdouble(z) + GLdouble(lz), // relative look at point = line of sight (i.e. the real position/direction we want to look at) + camera position
+	gluLookAt( x, y, z,				// location of the camera
+			  // relative look at point = line of sight (i.e. the real position/direction we want to look at) + camera position
+			  GLdouble(x) + GLdouble(lx), GLdouble(y) + GLdouble(ly), GLdouble(z) + GLdouble(lz),
 			  0.0f, 1.0f, 0.0f);	// the up vector of the camera
 
 	// Draw ground
@@ -127,53 +140,50 @@ void reshapeScene(int w, int h) { // w, h represents width and height
 
 }
 
-void pressKey(int key, int x, int y){
+void pressSpecialKey(int key, int x, int y){
 
 	switch (key) {
-		case GLUT_KEY_LEFT	:	break;
-		case GLUT_KEY_RIGHT	:	break;
-		case GLUT_KEY_UP	:	deltaMove = 0.5f;		break;
-		case GLUT_KEY_DOWN	:	deltaMove = -0.5f;		break;
+		case GLUT_KEY_LEFT	:	deltaMoveX -= 0.5f;		break;
+		case GLUT_KEY_RIGHT	:	deltaMoveX += 0.5f;		break;
+		case GLUT_KEY_UP	:	deltaMoveZ += 0.5f;		break;
+		case GLUT_KEY_DOWN	:	deltaMoveZ -= 0.5f;		break;
 	}
 
 }
 
-void releaseKey(int key, int x, int y){
+void releaseSpecialKey(int key, int x, int y){
 
 	switch (key) {
-		case GLUT_KEY_LEFT	:	
-		case GLUT_KEY_RIGHT	:	break;
-		case GLUT_KEY_UP	:	
-		case GLUT_KEY_DOWN	:	deltaMove  = 0.0f;		break;
+		case GLUT_KEY_LEFT	:	deltaMoveX += 0.5f;		break;
+		case GLUT_KEY_RIGHT	:	deltaMoveX -= 0.5f;		break;
+		case GLUT_KEY_UP	:	deltaMoveZ -= 0.5f;		break;
+		case GLUT_KEY_DOWN	:	deltaMoveZ += 0.5f;		break;
 	}
 
 }
 
 // this is where we process the ASCII Keyboard Button Presses, eg: Escape, W, A, S, D, etc.
-void processNormalKeys(unsigned char key, int x, int y) {
+void pressNormalKeys(unsigned char key, int x, int y) {
 
 	int mod;
 	switch (key) {
 
 		case 27: exit(0); break;// 27 represents the Escape Key
+		case 'a': deltaMoveX -= 0.5f;	break;
+		case 'd': deltaMoveX += 0.5f;	break;
+		case 'w': deltaMoveZ += 0.5f;	break;
+		case 's': deltaMoveZ -= 0.5f;	break;
 		
 	}
 }
 
-// this is where we process the mouse button changes
-void pressMouseButton(int button, int state, int x, int y) {
+void releaseNormalKeys(unsigned char key, int x, int y) {
 
-	// only start motion if the left button is pressed
-	if (button == GLUT_LEFT_BUTTON) {
-	
-		// when the button is released
-		if (state == GLUT_UP) {
-			angle += deltaAngle;
-			xPos = -1;
-		}
-		else {// state = GLUT_DOWN
-			xPos = x;
-		}
+	switch (key) {
+		case 'a':   deltaMoveX += 0.5f;		break;
+		case 'd':	deltaMoveX -= 0.5f;		break;
+		case 'w':	deltaMoveZ -= 0.5f;		break;
+		case 's':	deltaMoveZ += 0.5f;		break;
 	}
 
 }
@@ -181,22 +191,34 @@ void pressMouseButton(int button, int state, int x, int y) {
 void processMouseMovement(int x, int y) {
 
 	// this will only be true when the left button is down
-	//if (xPos >= 0) {
+	if (xPos >= 0) {
 
 		// update deltaAngle
-		deltaAngle = (x - xPos) * 0.001f;
+		deltaAngleXY = (x - xPos) * 0.001f;
 
 		// update camera's direction
-		lx = sin(angle + deltaAngle);
-		lz = -cos(angle + deltaAngle);
-	//}
+		lx = sin(angleXZ + deltaAngleXZ);
+		//ly = 
+		lz = -cos(angleXZ + deltaAngleXZ);
+	}
+
+	if (yPos >= 0) {
+
+	}
 
 }
 
-void computePos(float delta) {
+void computePos(float deltaX, float deltaZ) {
 
-	x += deltaMove * lx * 0.1f;
-	z += deltaMove * lz * 0.1f;
+	x += deltaZ * lx * 0.1f;
+	z += deltaZ * lz * 0.1f;
+
+	// calculate cross product of up and forward vector
+	strafeX = -lz;
+	strafeZ = lx;
+
+	x += deltaX * strafeX * 0.1f;
+	z += deltaX * strafeZ * 0.1f;
 
 }
 
