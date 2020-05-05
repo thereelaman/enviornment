@@ -1,5 +1,6 @@
+#include "Model.h"
+
 #include <stdlib.h>
-#include <iostream> //for testing
 #include <glut.h>
 
 void renderScene();
@@ -16,6 +17,7 @@ void processMouseMovement(int, int);
 
 void computePos(float, float);
 
+void drawModel(Model m, float r, float g, float b);
 void drawSnowman();
 
 int main(int argc, char** argv) {
@@ -28,7 +30,6 @@ int main(int argc, char** argv) {
 	glutInitWindowPosition(300, 300);
 	glutInitWindowSize(1366, 728);
 	glutCreateWindow("The Scene");
-
 	
 	glutDisplayFunc(renderScene);	// register the callback to the render start point
 	glutReshapeFunc(reshapeScene);	// register the callback to the function used to change the perspective so that window resizing doesn't cause any issues
@@ -56,27 +57,30 @@ int main(int argc, char** argv) {
 float lx = 0.0f,				// line of sight on xz plane
 	  ly = 0.0f,
 	  lz = -1.0f;
-float x = 0.0f, y = 1.0f, z = 5.0f;		// xz position of the camera
+float x = 0.0f, y = 2.0f, z = 5.0f;		// xz position of the camera
 
 float strafeX = 0.0f,
 	  strafeZ = 0.0f;
 
-float movementSpeed = 0.5f;		// defines the units at which the camera will move on a key press
+float movementSpeed = 1.0f;		// defines the units at which the camera will move on a key press
 float rotationSpeed = 2.0f;		// defines the units at which the camera will rotate on a key press
 
-float angleXY = 0.0f;			// angle of rotation for the camera direction (on z axis/ xy plane)
 float angleXZ = 0.0f;			// angle of rotation for the camera direction (on y axis/ xz plane)
+float angleYZ = 0.0f;			// angle of rotation for the camera direction (on x axis/ yz plane)
 
 // these are the key states, they are the values to be worked on 
-float deltaAngleXY = 0.0f;
 float deltaAngleXZ = 0.0f;
+float deltaAngleYZ = 0.0f;
 
 float deltaMoveZ = 0.0f;
 float deltaMoveX = 0.0f;
 
-// variable to store the X and Y positions when the mouse is clicked
-int xPos = -1; 
-int yPos = -1;
+Model cone		("Models/cone.obj");
+Model cube		("Models/cube.obj");
+Model cylinder	("Models/cylinder.obj");
+Model sphere	("Models/sphere.obj");
+Model torus		("Models/torus.obj");
+Model monkey	("Models/monkey.obj");
 
 // this is where we start rendering our scene
 void renderScene(void) {
@@ -95,15 +99,34 @@ void renderScene(void) {
 			  // relative look at point = line of sight (i.e. the real position/direction we want to look at) + camera position
 			  GLdouble(x) + GLdouble(lx), GLdouble(y) + GLdouble(ly), GLdouble(z) + GLdouble(lz),
 			  0.0f, 1.0f, 0.0f);	// the up vector of the camera
-
+	
 	// Draw ground
-	glColor3f(0.9f, 0.9f, 0.9f);
+	glColor3f(0.15f, 0.5f, 0.50f); // Lime Green
 	glBegin(GL_QUADS);
 	glVertex3f(-100.0f, 0.0f, -100.0f);
 	glVertex3f(-100.0f, 0.0f, 100.0f);
 	glVertex3f(100.0f, 0.0f, 100.0f);
 	glVertex3f(100.0f, 0.0f, -100.0f);
 	glEnd();
+
+
+	sphere.setLocation(3.0, 2.0, 8.0);
+	drawModel(sphere, 0.0f, 0.675f, 0.757f);
+
+	cylinder.setLocation(6.0, 2.0, 8.0);
+	drawModel(cylinder, 0.914f, 0.116f, 0.388f);
+
+	torus.setLocation(0.0, 2.0, 8.0);
+	drawModel(torus, 1.0f, 0.341f, 0.133f);
+
+	cone.setLocation(-3.0, 2.0, -8.0);
+	drawModel(cone, 0.486f, 0.302f, 0.059f);
+
+	cube.setLocation(-6.0, 2.0, -8.0);
+	drawModel(cube, 0.475f, 0.333f, 0.282f);
+
+	monkey.setLocation(0.0, 2.0, -8.0);
+	drawModel(monkey, 1.0f, 1.0f, 0.553f);
 
 	// Draw 36 SnowMen
 	for (int i = -3; i < 3; i++)
@@ -113,7 +136,7 @@ void renderScene(void) {
 			drawSnowman();
 			glPopMatrix();
 		}
-
+	
 	glutSwapBuffers();
 
 }
@@ -143,10 +166,10 @@ void reshapeScene(int w, int h) { // w, h represents width and height
 void pressSpecialKey(int key, int x, int y){
 
 	switch (key) {
-		case GLUT_KEY_LEFT	:	deltaMoveX -= 0.5f;		break;
-		case GLUT_KEY_RIGHT	:	deltaMoveX += 0.5f;		break;
-		case GLUT_KEY_UP	:	deltaMoveZ += 0.5f;		break;
-		case GLUT_KEY_DOWN	:	deltaMoveZ -= 0.5f;		break;
+		case GLUT_KEY_LEFT	:	deltaMoveX -= 0.5f * movementSpeed;		break;
+		case GLUT_KEY_RIGHT	:	deltaMoveX += 0.5f * movementSpeed;		break;
+		case GLUT_KEY_UP	:	deltaMoveZ += 0.5f * movementSpeed;		break;
+		case GLUT_KEY_DOWN	:	deltaMoveZ -= 0.5f * movementSpeed;		break;
 	}
 
 }
@@ -154,10 +177,10 @@ void pressSpecialKey(int key, int x, int y){
 void releaseSpecialKey(int key, int x, int y){
 
 	switch (key) {
-		case GLUT_KEY_LEFT	:	deltaMoveX += 0.5f;		break;
-		case GLUT_KEY_RIGHT	:	deltaMoveX -= 0.5f;		break;
-		case GLUT_KEY_UP	:	deltaMoveZ -= 0.5f;		break;
-		case GLUT_KEY_DOWN	:	deltaMoveZ += 0.5f;		break;
+		case GLUT_KEY_LEFT	:	deltaMoveX += 0.5f * movementSpeed;		break;
+		case GLUT_KEY_RIGHT	:	deltaMoveX -= 0.5f * movementSpeed;		break;
+		case GLUT_KEY_UP	:	deltaMoveZ -= 0.5f * movementSpeed;		break;
+		case GLUT_KEY_DOWN	:	deltaMoveZ += 0.5f * movementSpeed;		break;
 	}
 
 }
@@ -169,10 +192,10 @@ void pressNormalKeys(unsigned char key, int x, int y) {
 	switch (key) {
 
 		case 27: exit(0); break;// 27 represents the Escape Key
-		case 'a': deltaMoveX -= 0.5f;	break;
-		case 'd': deltaMoveX += 0.5f;	break;
-		case 'w': deltaMoveZ += 0.5f;	break;
-		case 's': deltaMoveZ -= 0.5f;	break;
+		case 'a': deltaMoveX -= 0.5f * movementSpeed;	break;
+		case 'd': deltaMoveX += 0.5f * movementSpeed;	break;
+		case 'w': deltaMoveZ += 0.5f * movementSpeed;	break;
+		case 's': deltaMoveZ -= 0.5f * movementSpeed;	break;
 		
 	}
 }
@@ -180,29 +203,35 @@ void pressNormalKeys(unsigned char key, int x, int y) {
 void releaseNormalKeys(unsigned char key, int x, int y) {
 
 	switch (key) {
-		case 'a':   deltaMoveX += 0.5f;		break;
-		case 'd':	deltaMoveX -= 0.5f;		break;
-		case 'w':	deltaMoveZ -= 0.5f;		break;
-		case 's':	deltaMoveZ += 0.5f;		break;
-	}
+		case 'a':   deltaMoveX += 0.5f * movementSpeed;		break;
+		case 'd':	deltaMoveX -= 0.5f * movementSpeed;		break;
+		case 'w':	deltaMoveZ -= 0.5f * movementSpeed;		break;
+		case 's':	deltaMoveZ += 0.5f * movementSpeed;		break;
+	}								  
 
 }
 
 void processMouseMovement(int x, int y) {
 
-	// this will only be true when the left button is down
-	if (xPos >= 0) {
+	if (x >= 0) {
 
 		// update deltaAngle
-		deltaAngleXY = (x - xPos) * 0.001f;
+		deltaAngleXZ = (x) * 0.0025f;
 
 		// update camera's direction
 		lx = sin(angleXZ + deltaAngleXZ);
-		//ly = 
 		lz = -cos(angleXZ + deltaAngleXZ);
+
 	}
 
-	if (yPos >= 0) {
+	if (y >= 0) {
+
+		// update deltaAngle
+		deltaAngleYZ = (y) * 0.0025f;
+
+		// update camera's direction
+		ly = cos(angleYZ + deltaAngleYZ);
+		lz = sin(angleYZ + deltaAngleYZ);
 
 	}
 
@@ -219,6 +248,21 @@ void computePos(float deltaX, float deltaZ) {
 
 	x += deltaX * strafeX * 0.1f;
 	z += deltaX * strafeZ * 0.1f;
+
+}
+
+void drawModel(Model m, float r, float g, float b) {
+
+	for (int i = 0; i < m.baseVertices.size(); i += 3) {
+
+		glBegin(GL_TRIANGLES);
+		glColor3f(r, g, b);
+		glVertex3f(m.baseVertices[i + 0].x, m.baseVertices[i + 0].y, m.baseVertices[i + 0].z);
+		glVertex3f(m.baseVertices[i + 1].x, m.baseVertices[i + 1].y, m.baseVertices[i + 1].z);
+		glVertex3f(m.baseVertices[i + 2].x, m.baseVertices[i + 2].y, m.baseVertices[i + 2].z);
+		glEnd();
+
+	}
 
 }
 
